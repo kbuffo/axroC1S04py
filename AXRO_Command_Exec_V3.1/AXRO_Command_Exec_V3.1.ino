@@ -29,15 +29,14 @@
 //#include </Users/ggermain/Desktop/ARDUINO/AXROINCLUDES/RigForAD5372.cpp>
 
 // For WFS Laptop Ops
-#include <C:\Users\rallured\Dropbox\AXRO\Arduino\AXROMirrorControlSoftware\AXRO_BRD1.h>
-#include <C:\Users\rallured\Dropbox\AXRO\Arduino\AXROMirrorControlSoftware\AXRO_Functions.cpp>
-#include <C:\Users\rallured\Dropbox\AXRO\Arduino\AXROMirrorControlSoftware\RigSPIforTREAD.cpp>
-#include <C:\Users\rallured\Dropbox\AXRO\Arduino\AXROMirrorControlSoftware\RigForLTC1859.cpp>
-#include <C:\Users\rallured\Dropbox\AXRO\Arduino\AXROMirrorControlSoftware\RigForAD5372.cpp>
+#include <C:\Users\Casey\Software\python_repository\axroHFDFCpy\AXRO_BRD1.h>
+#include <C:\Users\Casey\Software\python_repository\axroHFDFCpy\AXRO_Functions.cpp>
+#include <C:\Users\Casey\Software\python_repository\axroHFDFCpy\RigSPIforTREAD.cpp>
+#include <C:\Users\Casey\Software\python_repository\axroHFDFCpy\RigForLTC1859.cpp>
+#include <C:\Users\Casey\Software\python_repository\axroHFDFCpy\RigForAD5372.cpp>
 
 boolean debug = true;
 
-// To handle the command parsing:
 int num_cmd_bytes = 0;
 int num_board_id_bytes = 0;
 
