@@ -8,9 +8,12 @@
 from time import sleep
 import serial
 
-execfile("CommandCheck.py")
-execfile("VetTheCommand_V3.0.py")
-execfile("ProcessCommandFile.py")
+# execfile("CommandCheck.py")
+# execfile("VetTheCommand_V3.0.py")
+# execfile("ProcessCommandFile.py")
+exec(open("CommandCheck.py").read())
+exec(open("VetTheCommand_V3.0.py").read())
+exec(open("ProcessCommandFile.py").read())
 
 def Write_File(outfile, command_line, response):
     outfile.write("\n\n"+command_line+"\n")
@@ -30,7 +33,7 @@ ser = serial.Serial('COM5', 9600)
 #  Get the heartbeat
 ser.write("HEARTBEAT")
 hb_response = ser.readline()
-print hb_response
+print(hb_response)
 
 # Get a user command
 command_line = raw_input("Gimme a full command: ")
@@ -39,19 +42,19 @@ command = split_command[0].upper().encode()
 
 # Do until the user Control-C's out
 while command.upper() != "QUIT":
-    
+
     # If the command was "FILE" then process the command file
     if command.upper() == "FILE":
         ProcessCommandFile(CheckIt, split_command[1], split_command[2])
 
-    # Check to see if the command is HEARTBEAT. If it is, 
-    # wait for the response. Eventually we will build in a 
+    # Check to see if the command is HEARTBEAT. If it is,
+    # wait for the response. Eventually we will build in a
     # timeout here.
     elif command.upper() == "HEARTBEAT":
-        print "    Sending Heartbeat to the ARDUINO", command_line
+        print("    Sending Heartbeat to the ARDUINO", command_line)
         ser.write(command_line.upper().encode())
         cmd_echo = ser.readline()
-        print "Board Response is: ", cmd_echo
+        print("Board Response is: ", cmd_echo)
 
     elif command.upper() == "OPEN":
         filename = raw_input("Give me the name of the output file: ")
@@ -68,12 +71,12 @@ while command.upper() != "QUIT":
     elif command.upper() == "DEBUG":
         ser.write(command_line.upper().encode())
         cmd_echo = ser.readline()
-        print "Board Response is: ", cmd_echo
+        print("Board Response is: ", cmd_echo)
 
     elif command.upper() == "NODEBUG":
         ser.write(command_line.upper().encode())
         cmd_echo = ser.readline()
-        print "Board Response is: ", cmd_echo
+        print("Board Response is: ", cmd_echo)
 
     else:
         # If this is a legal command........
@@ -82,16 +85,16 @@ while command.upper() != "QUIT":
             #print "    Legal Command - Sending to the ARDUINO", command_line
             ser.write(command_line.upper().encode())
             cmd_echo = ser.readline()
-            print "Board Response is: ", cmd_echo
+            print("Board Response is: ", cmd_echo)
             if file_open_flag == True:
                 Write_File(outfile, command_line, cmd_echo)
 
         else:
-            print "Unauthorized command IGNORING"
+            print("Unauthorized command IGNORING")
             #ser.write(command_line.upper())
             #cmd_echo = ser.readline()
             #print "Board Response is: ", cmd_echo
-    
+
     # Get a new command
     command_line = raw_input("Gimme a command: ")
     split_command = command_line.split()
@@ -104,4 +107,4 @@ ser.write(command_line.upper().encode())
 # close down the serial line from this end
 ser.close()
 
-print "Ok then bye for now"
+print("Ok then bye for now")

@@ -59,15 +59,15 @@ class CommandCheck():
 
         # Check to see if the command is legal
         if (self.command not in self.acceptable_commands):
-            print "\nINPUT ERROR - invalid command! You typed: ", command_line
-            print "    Acceptable commands are: "
-            print "    ", self.acceptable_commands
+            print("\nINPUT ERROR - invalid command! You typed: ", command_line)
+            print("    Acceptable commands are: ")
+            print("    ", self.acceptable_commands)
             self.legal_command = False
         else:
             self.legal_command = True
 
         return(self.legal_command)
- 
+
     #---------------------------------------------------------------------------
     #
     # CheckBoard
@@ -77,16 +77,16 @@ class CommandCheck():
     def CheckBoard(self, command_tokens):
         # Extract the board number
         board_number = int(command_tokens[1])
-    
+
         # Test the user input for board number  to see if it's legal
         if  board_number not in self.acceptable_board_numbers:
             self.legal_board = False
-            print "\nINPUT ERROR = Your input board range of:", command_tokens[1], "is invalid!!\n    Valid board numbers range from: ", self.acceptable_board_numbers[0], " to ",self.acceptable_board_numbers[-1]
+            print("\nINPUT ERROR = Your input board range of:", command_tokens[1], "is invalid!!\n    Valid board numbers range from: ", self.acceptable_board_numbers[0], " to ",self.acceptable_board_numbers[-1])
         else:
             self.legal_board = True
-    
+
         return(self.legal_board)
-    
+
     #---------------------------------------------------------------------------
     #
     # CheckDAC
@@ -100,9 +100,9 @@ class CommandCheck():
         # Test the DAC number to be sure it's in the range
         if DAC_number not in self.acceptable_DAC_numbers:
             self.legal_DAC = False
-            print "\nINPUT ERROR - Incorrect DAC number"
-            print "You typed in the command: ", command_line
-            print "Acceptable integer DAC value range is from ", self.acceptable_DAC_numbers[0], " to ", self.acceptable_DAC_numbers[-1], " inclusive"
+            print("\nINPUT ERROR - Incorrect DAC number")
+            print("You typed in the command: ", command_line)
+            print("Acceptable integer DAC value range is from ", self.acceptable_DAC_numbers[0], " to ", self.acceptable_DAC_numbers[-1], " inclusive")
         else:
             self.legal_DAC = True
 
@@ -122,10 +122,10 @@ class CommandCheck():
         # If it's not within range, bounce it
         if self.channel not in self.acceptable_Channel_numbers:
             self.legal_channel = False
-            print "\nERROR - Channel Number out of range"
+            print("\nERROR - Channel Number out of range")
             #print "You typed in the command: ", command_line
-            print "Acceptable range of values for specifying a channel are:"
-            print "    ",self.acceptable_Channel_numbers[0]," through ",self.acceptable_Channel_numbers[-1], "inclusive"
+            print("Acceptable range of values for specifying a channel are:")
+            print("    ",self.acceptable_Channel_numbers[0]," through ",self.acceptable_Channel_numbers[-1], "inclusive")
 
         else:
             self.legal_channel = True
@@ -133,7 +133,7 @@ class CommandCheck():
         # Return the resultant channel flag
         return(self.legal_channel)
 
-    
+
     #---------------------------------------------------------------------------
     #
     # CheckGroup
@@ -143,19 +143,19 @@ class CommandCheck():
     def CheckGroup(self, command_tokens):
         # Extract the Group argument
         self.group = int(command_tokens[3])
-    
+
         # If it's not within range, bounce it
         if self.group not in self.acceptable_group_numbers:
             self.legal_group = False
-            print "\nERROR - Group Number out of range: ",self.group
-            print "Acceptable range of values for specifying a DACOFF group are:"
-            print "    0 or 1"
+            print("\nERROR - Group Number out of range: ",self.group)
+            print("Acceptable range of values for specifying a DACOFF group are:")
+            print("    0 or 1")
         else:
             self.legal_group = True
 
         # Return the resultant group flag
         return(self.legal_group)
-    
+
     #---------------------------------------------------------------------------
     #
     # CheckVolts
@@ -169,8 +169,8 @@ class CommandCheck():
         # Check to see if the voltage is within range
         if (self.volts < self.acceptable_voltage_range[0]) or \
            (self.volts > self.acceptable_voltage_range[-1]):
-            print "ERROR - Invalid voltage range. Input voltages must be between:"
-            print "    ",self.acceptable_voltage_range[0]," and ",self.acceptable_voltage_range[-1]
+            print("ERROR - Invalid voltage range. Input voltages must be between:")
+            print("    ",self.acceptable_voltage_range[0]," and ",self.acceptable_voltage_range[-1])
             self.legal_voltage = False
         else:
             self.legal_voltage = True
@@ -178,7 +178,7 @@ class CommandCheck():
         # Return the resultant flag
         return(self.legal_voltage)
 
-    
+
     #---------------------------------------------------------------------------
     #
     # CheckGain
@@ -188,12 +188,12 @@ class CommandCheck():
     def CheckGain(self,  command_tokens):
         # Extract the gain argument
         self.gain = int(command_tokens[4])
- 
+
         # Check it's limits
         if (self.gain < self.acceptable_gain_range[0]) or \
            (self.gain > self.acceptable_gain_range[-1]):
-            print "ERROR - Invalid gain value. Input gain must be between:"
-            print "    ",self.acceptable_gain_range[0]," and ",self.acceptable_gain_range[-1]   
+            print("ERROR - Invalid gain value. Input gain must be between:")
+            print("    ",self.acceptable_gain_range[0]," and ",self.acceptable_gain_range[-1]   )
             self.legal_gain = False
         else:
             self.legal_gain = True
@@ -212,19 +212,19 @@ class CommandCheck():
     def CheckOffset(self,  command_tokens):
         # Extract the  offset argument
         self.offset = float(command_tokens[4])
- 
+
         # Check it's limits
         if (self.offset < self.acceptable_offset_range[0]) or \
            (self.offset > self.acceptable_offset_range[-1]):
-            print "ERROR - Invalid offset value. Input offset must be between:"
-            print "    ",self.acceptable_offset_range[0]," and ",self.acceptable_offset_range[-1]   
+            print("ERROR - Invalid offset value. Input offset must be between:")
+            print("    ",self.acceptable_offset_range[0]," and ",self.acceptable_offset_range[-1]   )
             self.legal_offset = False
         else:
             self.legal_offset = True
 
         # Return the resultant flag
         return(self.legal_offset)
- 
+
 
     #---------------------------------------------------------------------------
     #
@@ -235,16 +235,15 @@ class CommandCheck():
     def CheckDACOffset(self,  command_tokens):
         # Extract the  DACoffset argument
         self.DACoffset = int(command_tokens[3])
- 
+
         # Check it's limits
         if (self.DACoffset < self.acceptable_DACoffset_range[0]) or \
            (self.DACoffset > self.acceptable_DACoffset_range[-1]):
-            print "ERROR - Invalid DACoffset value. Input DACoffset must be between:"
-            print "    ",self.acceptable_DACoffset_range[0]," and ",self.acceptable_DACoffset_range[-1]   
+            print("ERROR - Invalid DACoffset value. Input DACoffset must be between:")
+            print("    ",self.acceptable_DACoffset_range[0]," and ",self.acceptable_DACoffset_range[-1]   )
             self.legal_DACoffset = False
         else:
             self.legal_DACoffset = True
 
         # Return the resultant flag
         return(self.legal_DACoffset)
- 
