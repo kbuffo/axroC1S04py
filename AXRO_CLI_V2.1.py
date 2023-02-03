@@ -28,15 +28,15 @@ CheckIt = CommandCheck()
 
 # Establish the connection on a specific port
 #ser = serial.Serial('/dev/ttyACM0', 9600)
-ser = serial.Serial('COM5', 9600)
+ser = serial.Serial('COM3', 9600)
 
 #  Get the heartbeat
-ser.write("HEARTBEAT")
+ser.write(b"HEARTBEAT")
 hb_response = ser.readline()
 print(hb_response)
 
 # Get a user command
-command_line = raw_input("Gimme a full command: ")
+command_line = input("Gimme a full command: ")
 split_command = command_line.split()
 command = split_command[0].upper().encode()
 
@@ -57,9 +57,9 @@ while command.upper() != "QUIT":
         print("Board Response is: ", cmd_echo)
 
     elif command.upper() == "OPEN":
-        filename = raw_input("Give me the name of the output file: ")
+        filename = input("Give me the name of the output file: ")
         outfile = open(filename, "w")
-        comment = raw_input("Give me a comment to place at the top: ")
+        comment = input("Give me a comment to place at the top: ")
         outfile.write(comment+"\n")
         file_open_flag = True
 
@@ -96,7 +96,7 @@ while command.upper() != "QUIT":
             #print "Board Response is: ", cmd_echo
 
     # Get a new command
-    command_line = raw_input("Gimme a command: ")
+    command_line = input("Gimme a command: ")
     split_command = command_line.split()
     command = split_command[0]
 

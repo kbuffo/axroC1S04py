@@ -3,17 +3,10 @@ import serial
 import time
 import os
 
-#Load Gregg's functions
-# arddir = u'C:\\Users\\rallured\\Dropbox\\AXRO\\Arduino\\AXROMirrorControlSoftware\\'
-# execfile(arddir+"CommandCheck.py")
-# execfile(arddir+"VetTheCommand_V3.0.py")
-# execfile(arddir+"ProcessCommandFile.py")
-
 exec(open("CommandCheck.py").read())
 exec(open("VetTheCommand_V3.0.py").read())
 exec(open("ProcessCommandFile.py").read())
 
-board_num = 1
 verbose = True
 abs_volt_max = 15.0
 
@@ -47,7 +40,7 @@ def encoded_init():
     ProcessCommandFile(CommandCheck(),arddir+'SetUp_DACOFF_FullBoard3.txt',0)
     return None
 
-def setChan(chan,volt):
+def setChan(board_num, chan, volt):
     """
     Convert the channel number into board format and then issue
     command to set voltage.
@@ -62,7 +55,7 @@ def setChan(chan,volt):
         print('Voltage out of bounds!')
     return None
 
-def readChan(chan):
+def readChan(board_num, chan):
     """
     Convert channel into proper DAC and channel number
     Then issue read command and parse voltage from echo.
@@ -71,6 +64,7 @@ def readChan(chan):
     cstr = 'VREAD %i %i %i' % (board_num,dac,channel)
     ser.write(cstr.encode())
     s = echo()
+    print('\n==================================\ns string: {}\nconversion: {}\n==================================\n'.format(s, float(s.split()[-1])))
     return float(s.split()[-1])
 
 def close():
@@ -82,47 +76,47 @@ def close():
     return None
 
 #Define higher level functions for interacting with piezo mirror
-def ground():
+def ground(board_num):
     """
     Set all channels to zero volts
     """
     for c in range(256):
-        setChan(c,0.0)
+        setChan(board_num, c,0.0)
     return None
 
-def setVoltArr(voltage):
+def setVoltArr(board_num, voltage):
     """
     Set all 256 channels using a 256 element voltage vector.
     The indices correspond to piezo cell number.
     """
     for c in range(256):
-        setChan(cellmap[c],voltage[c])
+        setChan(board_num, cellmap[c],voltage[c])
     return None
 
-def setVoltChan(chan,volt):
+def setVoltChan(board_num, chan, volt):
     """
     Set individual piezo cell, channel corresponds to piezo cell number
     """
-    setChan(cellmap[chan],volt)
+    setChan(board_num, cellmap[chan], volt)
     return None
 
-def readVoltArr():
+def readVoltArr(board_num):
     """
     Loop through and read the voltages on all piezo cells. Return
     vector of voltages where index matches cell number (minus one).
     """
     v = []
     for c in range(256):
-        v.append(readChan(cellmap[c]))
+        v.append(readChan(board_num, cellmap[c]))
     return np.asarray(v)
 
-def readVoltChan(chan):
+def readVoltChan(board_num, chan):
     """
     Read individual piezo cell voltage. Chan refers to piezo cell number.
     """
-    return readChan(cellmap[chan])
+    return readChan(board_num, cellmap[chan])
 
-def init(board_num = board_num):
+def init(board_num = 1, offset=8192):
     """
     Change to software directory and run initialization script.
     """
@@ -130,25 +124,27 @@ def init(board_num = board_num):
     ser.write(cstr.encode())
     echo()
 
-    for dac in range(8):
-        cstr = 'DACOFF %i %i 0 8192' % (board_num,dac)
+    for dac in range(8): # 8192 offset val was used previously as standard
+        cstr = 'DACOFF %i %i 0 %i' % (board_num, dac, offset)
         ser.write(cstr.encode())
         echo()
 
-        cstr = 'DACOFF %i %i 1 8192' % (board_num,dac)
+        cstr = 'DACOFF %i %i 1 %i' % (board_num, dac, offset)
         ser.write(cstr.encode())
         echo()
 
-    ground()
+    ground(board_num)
     return None
 
-def test_board(tvolts = [0,-10,-1,1,10],header = 'hereareyourtestresults'):
-    ground()
+def test_board(board_num, tvolts = [0,-10,-1,1,10], savefile=True,
+                header = 'hereareyourtestresults'):
+    ground(board_num)
 
     for volt in tvolts:
-        ground()
-        setVoltArr(np.ones(256)*volt)
-        rvolts = readVoltArr()
-        np.savetxt(header + str(volt) + 'V_ReadResponse.txt',rvolts)
+        ground(board_num)
+        setVoltArr(board_num, np.ones(256)*volt)
+        rvolts = readVoltArr(board_num)
+        if savefile:
+            np.savetxt(header + str(volt) + 'V_ReadResponse.txt',rvolts)
         print('Tested ' + str(volt) + 'V, Sleeping Briefly....')
         time.sleep(10)

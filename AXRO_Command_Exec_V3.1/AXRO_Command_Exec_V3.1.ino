@@ -598,7 +598,7 @@ void loop()
                }
         else
             {
-              Serial.print("***I have no idea what to do with this:");
+              Serial.print("---I have no idea what to do with this: ");
               Serial.print(command);
               Serial.println("---");
             }
