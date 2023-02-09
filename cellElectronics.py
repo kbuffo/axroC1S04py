@@ -3,6 +3,7 @@ Used in conjuction with construct_connections.py to control the voltage of cell 
 """
 import numpy as np
 import serial
+import serial.tools.list_ports
 import time
 import os
 from datetime import date
@@ -17,17 +18,13 @@ exec(open(repo_dir+"VetTheCommand_V3.0.py").read())
 exec(open(repo_dir+"ProcessCommandFile.py").read())
 abs_volt_max = 15.0
 
-#Establish the serial connection
-# ser = serial.Serial('COM3', 9600)
-try:
-    ser = serial.Serial('COM3', 9600)
-    print('it did work')
-except:
-    print("it didn't work")
-    pass
-# print('You have imported the changed file!')
+# Establish the serial connection
+ser = serial.Serial()
+ser.port = 'COM3'
+ser.baudrate = 9600
+ser.open()
 
-def findCells(cells, attribute, value):
+def findCells(cells, attribute, value, printFail=True):
     """
     Returns a list of cells whose attribute matches the given parameter.
     For example, attribute='no' and value=1 will return the list of cells whose cell
@@ -38,7 +35,7 @@ def findCells(cells, attribute, value):
         found_value = getattr(cell, attribute)
         if found_value == value:
             matching_cells.append(cell)
-    if len(matching_cells) == 0:
+    if len(matching_cells) == 0 and printFail is True:
         print("Couldn't find any cells matching those parameters.")
     return matching_cells
 
@@ -57,7 +54,7 @@ def updateVolts(cell_no, cells, voltage):
     cell.voltage = voltage
     cell.volt_hist.append(voltage)
 
-def undoVoltStep(cell_no, cells, voltage, idx=-1):
+def undoVoltStep(cell_no, cells, idx=-1):
     """
     Removes voltage[idx] from voltage history of cell.
     Default is to remove last step
@@ -81,17 +78,12 @@ def setCell(cell_no, cells, voltage, printCellEcho=True, printSerEcho=False):
     If printSerEcho is True, the result of the command is read from the
     serial monitor
     """
-    # print('You called setCell!')
     if np.abs(voltage) <= abs_volt_max:
         cell = findCells(cells, 'no', cell_no)[0]
         cstr = 'VSET %i %i %i %f' % (cell.board_num, cell.dac_num, cell.channel, voltage)
-        ser.write(cstr.encode())
-        # if printSerEcho: _ = serEcho(include_print=True)
-        cmd_echo = ser.readline()
-        # print('Here is the response in setCell:')
-        # print("Board Response is: ", cmd_echo)
-        set_voltage = readCell(cell_no, cells) # read the voltage that was applied
-        # print('Here is the set voltage I got back:', set_voltage)
+        ser.write(cstr.encode()) # apply the voltage
+        _ = serEcho(include_print=printSerEcho)
+        set_voltage = readCell(cell_no, cells, printSerEcho=printSerEcho) # read the voltage that was applied
         updateVolts(cell_no, cells, set_voltage) # update cell object
         if printCellEcho: printCellVolt(cell_no, cells, set_voltage)
     else:
@@ -102,16 +94,11 @@ def readCell(cell_no, cells, printSerEcho=False):
     Issues a command to read the voltage of a cell.
     If serEcho is true, the result of the command is read from the serial monitor.
     """
-    # print('You called readCell!')
     cell = findCells(cells, 'no', cell_no)[0]
     cstr = 'VREAD %i %i %i' % (cell.board_num, cell.dac_num, cell.channel)
     ser.write(cstr.encode())
-    return_string = ser.readline()
-    # print('Here is the response in readCell:')
-    # print('Board response is:', return_string)
-    # return_string = serEcho(include_print=printSerEcho)
+    return_string = serEcho(include_print=printSerEcho)
     voltage = float(return_string.split()[-1])
-    # print('In readCell: the voltage read is:', voltage)
     return voltage
 
 def serEcho(include_print=False):
@@ -124,81 +111,76 @@ def serEcho(include_print=False):
     if include_print: print("Board Response is: ", cmd_echo)
     return cmd_echo
 
-def init_boards(board_nums, cells, offset=8192, printSerEcho=False):
+def init_boards(board_nums, cells, offset=8192, printCellEcho=False, printSerEcho=False):
     """
     Initializes boards by resetting them and their DAC's offset values.
     board_nums should be a list of integers: [1, 2, 3, 4].
     IT IS IMPORTANT TO INITIALIZE BOARDS BEFORE USING THEM FOR MEASUREMENTS.
     """
     for board_num in board_nums:
-        # print('here is the current board number:', board_num)
         cstr = 'RESET %i' % (board_num)
         ser.write(cstr.encode())
-        _ = ser.readline()
-        # print('You wrote the reset command for board:', board_num)
-        if printSerEcho: _ = serEcho(include_print=printSerEcho)
+        _ = serEcho(include_print=printSerEcho)
 
         for dac in range(8): # 8192 offset val was used previously as standard
             cstr = 'DACOFF %i %i 0 %i' % (board_num, dac, offset)
             ser.write(cstr.encode())
-            # print('You wrote the dacoff 0 command for dac:', dac)
-            _ = ser.readline()
-            if printSerEcho: _ = serEcho(include_print=printSerEcho)
+            _ = serEcho(include_print=printSerEcho)
 
             cstr = 'DACOFF %i %i 1 %i' % (board_num, dac, offset)
             ser.write(cstr.encode())
-            _ = ser.readline()
-            # print('You wrote the dacoff 1 command for dac:', dac)
-            if printSerEcho: _ = serEcho(include_print=printSerEcho)
-        ground_board(board_num, cells)
-        # print('Initialized board:', board_num)
+            _ = serEcho(include_print=printSerEcho)
+        ground_board(board_num, cells, printCellEcho=False, printSerEcho=False)
+        print('Initialized board:', board_num)
 
-def ground_board(board_num, cells):
+def ground_board(board_num, cells, printCellEcho=True, printSerEcho=False):
     """
     Grounds all the pins a board.
     """
-    # print('You called ground_board!')
-    cells_w_board = findCells(cells, 'board_num', board_num)
+    cells_w_board = findCells(cells, 'board_num', board_num, printFail=False)
     for dac in range(8):
-        cells_w_dac = findCells(cells_w_board, 'dac_num', dac) # find the cells with the matching dac
+        cells_w_dac = findCells(cells_w_board, 'dac_num', dac, printFail=False) # find the cells with the matching dac
         for channel in range(32):
-            # print('Current board, dac, channel:', board_num, dac, channel)
-            matching_cells = findCells(cells_w_dac, 'channel', channel) # find the cell witht the matching
+            matching_cells = findCells(cells_w_dac, 'channel', channel, printFail=False) # find the cell with the matching
             if len(matching_cells) > 0: # ground the cell
                 cell = matching_cells[0]
-                # print('I found cell # {} has board: {}, dac: {}, and channel: {}'.format(cell.no, cell.board_num, cell.dac_num, cell.channel))
-                setCell(cell.no, cells, 0.0, printSerEcho=False)
-                # print('I grounded a cell!')
+                setCell(cell.no, cells, 0.0, printCellEcho=printCellEcho,
+                        printSerEcho=printSerEcho)
             else: # ground pin that is not connected to cell
                 cstr = 'VSET %i %i %i %f' % (board_num, dac, channel, 0.0)
                 ser.write(cstr.encode())
-                _ = ser.readline()
+                _ = serEcho(include_print=printSerEcho)
                 cstr = 'VREAD %i %i %i' % (board_num, dac, channel)
                 ser.write(cstr.encode())
-                return_string = ser.readline()
+                return_string = serEcho(include_print=printSerEcho)
                 return_voltage = float(return_string.split()[-1])
-                print('(not a cell) Board: {}, DAC: {}, CH: {} has been set to {} V.'\
-                                .format(board_num, dac, channel, return_voltage))
-                # print('I grounded a pin!')
+                if printCellEcho:
+                    print('(not a cell) Board: {}, DAC: {}, CH: {} has been set to {} V.'\
+                                    .format(board_num, dac, channel, return_voltage))
 
 def test_cells(cells, board_nums, tvolts=[-10, -1, 0, 1, 10],
                 savefile=True):
     """
     Tests all the cells at different voltages.
     """
-    for cell in cells: # clear the volt history of the cells
-        clearVoltHistory(cell.no, cells)
+    # for cell in cells: # clear the volt history of the cells
+    #     clearVoltHistory(cell.no, cells)
     init_boards(board_nums, cells) # initialize the boards
+    for cell in cells:
+        clearVoltHistory(cell.no, cells) # clear the volt history of the cells
     for volt in tvolts:
+        print('Now testing: {} V'.format(tvolts))
         for cell in cells:
-            clearVoltHistory(cell.no, cells) # clear the volt history of the cell
-            setCell(cell.no, cells, 0.0) # ground the cell
+            # print('Testing {} V on cell {}: volt hist before: {}'.format(volt, cell.no, cell.volt_hist))
+            setCell(cell.no, cells, 0.0, printCellEcho=False) # ground the cell
+            undoVoltStep(cell.no, cells, idx=-1) # remove the ground from the volt history
             setCell(cell.no, cells, volt) # set the cell to the test voltage
-        if savefile: # save the test
-            fname = today+str(volt)+'V_cells_test'
-            date_dir = test_save_dir+today[:-1]
-            os.mkdir(date_dir)
-            with open(date_dir+fname, 'wb') as f:
-                picle.dump(cells, f)
+            # print('Testing {} V on cell {}: volt hist after: {}'.format(volt, cell.no, cell.volt_hist))
         print('Tested {} V, sleeping breifly...'.format(str(volt)))
         time.sleep(10)
+    if savefile: # save the test
+        fname = test_save_dir+today+str(volt)+'V_cells_test'
+        # date_dir = test_save_dir+today[:-1]+'\\'
+        # if not os.path.exists(date_dir): os.mkdir(date_dir)
+        with open(fname, 'wb') as f:
+            pickle.dump(cells, f)

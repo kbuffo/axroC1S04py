@@ -1,5 +1,6 @@
 from scipy import ndimage as nd
 import numpy as np
+import math
 from operator import itemgetter
 from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
@@ -17,20 +18,6 @@ import axroOptimization.solver as solver
 
 from datetime import date
 import string
-
-# import serial # used for voltage control
-# import time
-# import os
-# import axroHFDFCpy.axroBoardTesting_V2 as axBT
-
-# exec(open("CommandCheck.py").read())
-# exec(open("VetTheCommand_V3.0.py").read())
-# exec(open("ProcessCommandFile.py").read())
-# verbose = True
-# abs_volt_max = 15.0
-# offset=8192
-# #Establish the serial connection
-# ser = serial.Serial('COM3', 9600)
 
 def printer():
     print('Hello construct connections!')
@@ -337,11 +324,7 @@ class Cell:
         self.maxInd = maxInd
         if short_cell_no is not None: self.short_cell_no = short_cell_no
 
-##################### Cell voltage control #################################
-def init_boards(cells):
-    for board in [topBoard, bottomBoard]:
-        axBT.init(board_num=int(board), offset=offset)
-    read_volts(cells)
+
 ##################### Cell utility functions #################################
 
 def print_cells_info(cells):
@@ -486,6 +469,35 @@ def plot_cell_status(cells, figsize=(10,8), plot_title=None, fontsize=18):
     # Put a legend to the right of axis
     fig.legend(bbox_to_anchor=(0.71, 0.5), loc="center left")
     fig.subplots_adjust(right=0.7)
+    return fig
+
+def plot_cellTests(cells, date, tvolts=[-10.0, -1.0, 0.0, 1.0, 10.0],
+                    title='Cell Test Voltages Response', figsize=None, fontsize=12):
+    """
+    Plots the voltage history for a list of cell objects that were tested at a
+    list of known voltages.
+    """
+    N_rows = math.ceil(len(tvolts)/2)
+    if '_' in date: date = date.replace('_', '')
+    if figsize is None: figsize = (12, N_rows*5)
+    fig, axs = plt.subplots(N_rows, 2, figsize=figsize)
+    if len(tvolts) % 2 != 0: fig.delaxes(axs[-1,-1])
+    for i in range(len(tvolts)):
+        ax = axs.ravel()[i]
+        cell_nos = [cell.no for cell in cells]
+        volts = np.array([cell.volt_hist[i] for cell in cells])
+        mean_volt = np.mean(volts)
+        ax.plot(cell_nos, volts)
+        ax.set_ylabel('Voltage (V)', fontsize=fontsize)
+        ax.set_xlabel('Cell #', fontsize=fontsize)
+        ax.set_title('Applied Voltage: {} V'.format(tvolts[i]), fontsize=fontsize)
+        ax.text(0.85, 0.9, 'Mean: {:.2f}V'.format(mean_volt), fontsize=fontsize,
+                ha='center', va='center', transform=ax.transAxes)
+        ax.grid(axis='y')
+        ax.set_ylim([-15,15])
+        ax.set_xlim([np.min(cell_nos), np.max(cell_nos)])
+    fig.suptitle(title+'\nDate: '+date, fontsize=fontsize+2)
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
     return fig
 
 ##################### Old functions #################################
