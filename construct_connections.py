@@ -18,11 +18,26 @@ import axroOptimization.solver as solver
 from datetime import date
 import string
 
+# import serial # used for voltage control
+# import time
+# import os
+# import axroHFDFCpy.axroBoardTesting_V2 as axBT
+
+# exec(open("CommandCheck.py").read())
+# exec(open("VetTheCommand_V3.0.py").read())
+# exec(open("ProcessCommandFile.py").read())
+# verbose = True
+# abs_volt_max = 15.0
+# offset=8192
+# #Establish the serial connection
+# ser = serial.Serial('COM3', 9600)
+
 def printer():
     print('Hello construct connections!')
 
 ############### Constructing cell, pin, and cable structure ####################
-
+topBoard = 3 # YOU NEED TO CHANGE THESE IF YOU SWAP OUT THE BOARDS IN THE ENCLOSURE
+bottomBoard = 1
 N_cells = 288 # number of cells
 N_rows = 18 # number of rows (axial dimension)
 N_cols = 16 # number of columns (azimuthal dimension)
@@ -141,22 +156,22 @@ pa_even_pins.extend([concs[3]]*(len(p0xa_pins)-len(pa_even_pins)))
 air_cables = {'P1A' : {
                         'P01A':[p0xa_pins, pa_odd_pins, 'J2'],
                         'P02A':[p0xa_pins, pa_even_pins, 'J5'],
-                        'Board':'1'
+                        'Board':topBoard
                         },
              'P2A' : {
                         'P03A':[p0xa_pins, pa_odd_pins, 'J7'],
                         'P04A':[p0xa_pins, pa_even_pins, 'J9'],
-                        'Board':'1'
+                        'Board':topBoard
                         },
              'P3A' : {
                         'P05A':[p0xa_pins, pa_odd_pins, 'J2'],
                         'P06A':[p0xa_pins, pa_even_pins, 'J5'],
-                        'Board':'3'
+                        'Board':bottomBoard
                         },
              'P4A' : {
                         'P07A':[p0xa_pins, pa_odd_pins, 'J7'],
                         'P08A':[p0xa_pins, pa_even_pins, 'J9'],
-                        'Board':'3'
+                        'Board':bottomBoard
                         }}
 
 ############################## Board Layout ##############################
@@ -186,23 +201,23 @@ j9_aout_pins = (
                 )
 channels = [i for i in range(N_channels)]
 board_dict = {'J2' : {
-                        '0':[i for i in range(32)], # AOUT pins for each DAC
-                        '1':[i for i in range(32, 64)],
+                        0:[i for i in range(32)], # AOUT pins for each DAC
+                        1:[i for i in range(32, 64)],
                         'j_aout_pins':j2_aout_pins
                         },
              'J5' : {
-                        '2':[i for i in range(64, 96)],
-                        '3':[i for i in range(96, 128)],
+                        2:[i for i in range(64, 96)],
+                        3:[i for i in range(96, 128)],
                         'j_aout_pins':j5_aout_pins
                         },
              'J7' : {
-                        '4':[i for i in range(128, 160)],
-                        '5':[i for i in range(160, 192)],
+                        4:[i for i in range(128, 160)],
+                        5:[i for i in range(160, 192)],
                         'j_aout_pins':j7_aout_pins
                         },
              'J9' : {
-                        '6':[i for i in range(192, 224)],
-                        '7':[i for i in range(224, N_aout_pins)],
+                        6:[i for i in range(192, 224)],
+                        7:[i for i in range(224, N_aout_pins)],
                         'j_aout_pins':j9_aout_pins
                         }}
 
@@ -311,6 +326,8 @@ class Cell:
         self.pv = -1
         self.maxInd = None
         self.short_cell_no = -1
+        self.voltage = None
+        self.volt_hist = []
     def add_if(self, ifunc):
         self.ifunc = ifunc
         self.rms = alsis.rms(ifunc)
@@ -319,6 +336,13 @@ class Cell:
     def add_maxInd(self, maxInd, short_cell_no):
         self.maxInd = maxInd
         if short_cell_no is not None: self.short_cell_no = short_cell_no
+
+##################### Cell voltage control #################################
+def init_boards(cells):
+    for board in [topBoard, bottomBoard]:
+        axBT.init(board_num=int(board), offset=offset)
+    read_volts(cells)
+##################### Cell utility functions #################################
 
 def print_cells_info(cells):
     """
@@ -343,8 +367,6 @@ def print_cells_info(cells):
         print('------------------IF--------------------')
         print('IF Shape: {}, RMS: {:.2f} um, PV: {:.2f} um'.format(cell.ifunc.shape, cell.rms, cell.pv))
         print('=========================================\n')
-
-##################### Cell utility functions #################################
 
 def cells_to_array(cells):
     """

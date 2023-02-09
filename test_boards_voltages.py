@@ -8,8 +8,8 @@ import axroHFDFCpy.axroBoardTesting_V2 as axBT   # 'axro Board Test = axBT'
 In the control box, board 1 is on bottom and board 3a is on top.
 """
 today = str(date.today())
-data_dir = "C:\\Users\\kbuffo\\OneDrive - University of Iowa\\Research\\Summer_2022\\WorkSpace\\C1S04\\control\\voltage_data\\test_voltages"
-boards = ['3b'] # entries are strings: '1', '2', '3a', '3b'
+data_dir = "C:\\Users\\kbuffo\\OneDrive - University of Iowa\\Research\\PZT_work\\WorkSpace\\C1S04\\control\\voltage_data\\test_voltages"
+boards = ['1','3a'] # entries are strings: '1', '2', '3a', '3b'
 # offset_vals = [0, 4096, 8192, 12288, 16383] # [0 to 16383] integer 8192 IS DEFAULT
 offset_vals = [8192]
 tvolts = [0, -10, -1, 1, 10]
