@@ -11,13 +11,17 @@ import matplotlib.colors as mcolors
 plt.rcParams['savefig.facecolor']='white'
 
 import utilities.figure_plotting as fp
+import metrology as met
 import imaging.man as man
 import imaging.analysis as alsis
 import axroOptimization.evaluateMirrors as eva
 import axroOptimization.solver as solver
 
+
 from datetime import date
 import string
+import copy
+import pickle
 
 def printer():
     print('Hello construct connections!')
@@ -41,7 +45,7 @@ cell_nums = np.arange(1, N_cells+1, 1) # array of cell numbers
 rows = np.arange(0, N_rows, 1) # array of cell rows
 cols = np.arange(0, N_cols, 1) # array of cell columns
 # list of grid coordinates for each cell in the standard format
-grid_coords = [[rows[(N_rows-1)-(i%N_rows)],cols[i//N_rows]] for i in range(N_cells)]
+grid_coords = [[rows[(N_rows-1)-(i%N_rows)],cols[-1-(i//N_rows)]] for i in range(N_cells)]
 # for i in grid_coords:
 #     i[0] *= -1
 # grid_coords = sorted(grid_coords, key=lambda k: [k[0], k[1]])
@@ -290,8 +294,8 @@ class Cell:
     def __init__(self, cell_ls):
         self.idx = cell_ls[0]
         self.no = cell_ls[1]
-        self.grid_coord = cell_ls[2]
-        self.rc_label = cell_ls[3]
+        self.grid_coord = cell_ls[2] # as viewed from non-reflective (back) side of mirror
+        self.rc_label = cell_ls[3] # as viewed from non-reflective (back) side of mirror
         self.region = cell_ls[4]
         self.pin_cell_no = cell_ls[5]
         self.p0xv_cable = cell_ls[6]
@@ -315,6 +319,11 @@ class Cell:
         self.short_cell_no = -1
         self.voltage = None
         self.volt_hist = []
+        self.gnd_voltMap = None
+        self.high_voltMap = None
+        self.gnd_figMap = None
+        self.high_figMap = None
+        self.boxCoord = None
     def add_if(self, ifunc):
         self.ifunc = ifunc
         self.rms = alsis.rms(ifunc)
@@ -326,6 +335,38 @@ class Cell:
 
 
 ##################### Cell utility functions #################################
+
+def save_cells(cells, pickle_file):
+    """
+    Save a list of cell objects using pickling.
+    """
+    attribs = []
+    for cell in cells:
+        # print('Saving cell #: {}...'.format(cell.no))
+        cell_copy = copy.deepcopy(cell)
+        keys = [key for key in cell_copy.__dict__.keys()]
+        attribs.append([keys, [cell_copy.__dict__[key] for key in keys]])
+        # attribs.append([new_object.__dict__[key] for key in keys])
+        f = open(pickle_file, 'wb')
+        pickle.dump(attribs, f)
+        f.close()
+        # print('complete.')
+
+def load_cells(pickle_file):
+    """
+    Load a list of cell objects from a pickle file.
+    """
+    f = open(pickle_file,'rb')
+    attribs = pickle.load(f)
+    f.close()
+    N_cells = len(attribs)
+    N_values = len(attribs[0][0])
+    keys = attribs[0][0]
+    blank_cells = [Cell([None]*N_values) for i in range(N_cells)]
+    for i, blank_cell in enumerate(blank_cells):
+        for j in range(N_values):
+            blank_cell.__dict__[keys[j]] = attribs[i][1][j]
+    return blank_cells
 
 def print_cells_info(cells):
     """
@@ -351,12 +392,105 @@ def print_cells_info(cells):
         print('IF Shape: {}, RMS: {:.2f} um, PV: {:.2f} um'.format(cell.ifunc.shape, cell.rms, cell.pv))
         print('=========================================\n')
 
+def print_cells_array_info(cells):
+    """
+    Prints the shape of the 3D array of IFs, maxInds, boxCoords for a list of cell objects.
+    """
+    cell_nos, ifs, maxInds, boxCoords = get_cell_arrays(cells)
+    if ifs is None: ifs_text = 'None'
+    else: ifs_text = ifs.shape
+    if maxInds is None: maxInds_text = 'None'
+    else: maxInds_text = maxInds.shape
+    if boxCoords is None: boxCoords_text = 'None'
+    else: boxCoords_text = boxCoords.shape
+    print('Number of cells: {}'.format(len(cells)))
+    print('IFs shape: {}'.format(ifs_text))
+    print('maxInds shape: {}'.format(maxInds_text))
+    print('boxCoords shape: {}'.format(boxCoords_text))
+
+def get_cell_arrays(cells):
+    """
+    Takes in a list of cell objects and returns:
+    * 1D array of cell nos
+    * 3D array of cell IFs
+    * 3D array of cell maxInds
+    * 4D array of boxCoords
+    """
+    cell_nos = np.array([cell.no for cell in cells])
+    if cells[0].ifunc is not None: ifs = np.stack([cell.ifunc for cell in cells], axis=0)
+    else: ifs = None
+    if cells[0].maxInd is not None: maxInds = np.stack([cell.maxInd for cell in cells], axis=0)
+    else: maxInds = None
+    if cells[0].boxCoord is not None: boxCoords = np.stack([cell.boxCoord for cell in cells], axis=0)
+    else: boxCoords = None
+    return cell_nos, ifs, maxInds, boxCoords
+
 def cells_to_array(cells):
     """
     Takes a list of cell objects and returns an 3D array of their IFs in
     the same order as the cell object list.
     """
     return np.stack([cell.ifunc for cell in cells], axis=0)
+
+def read_IFmeas_dir(data_dir, input_cells, cell_save_fname=None):
+    """
+    Reads the directory where you saved the ground and energized figure maps
+    when running measureIFs() in remoteIF_measure.py. Constructs the IFs by subtracting
+    references, and adds energized fig maps, grounded fig maps, and IFs to cells objects.
+    Returns:
+    * cells: the edited lists of cell objects (now with energized fig maps,
+    grounded fig maps, and IFs attached)
+    * high_figMaps: 3D array of maps of when cells were energized (unsubtracted
+    from ground maps)
+    * gnd_figMaps: 3D array of maps of when cells were grounded prior to energizing a cell
+    * order_figMaps: 3D array that combines high_figMaps and gnd_figMaps, but ordered in
+    the order the data was taken.
+    * ifs: 3D array of IFs constructed
+    * dx: the mm/pixel value used for plotting.
+    * high_voltMaps: 3D array of voltMaps from when the cell was energized
+    * gnd_voltMaps: 3D array of voltMaps from when all cells were grounded prior to energization
+    * order_voltMaps: 3D array that combines high_voltMaps and gnd_voltMaps, but ordered in
+    the order the data was taken.
+    * optionally saves the edited cells if cell_save_fname is specified.
+    Note: this function assumes energized and ground figure maps were saved as:
+    'cell_{no}_10V.h5' and 'cell_{no}_grounded.h5', respectively.
+    """
+    cells = copy.deepcopy(input_cells)
+    high_figMaps, gnd_figMaps, order_figMaps, ifs, dxs = [], [], [], [], []
+    high_voltMaps, gnd_voltMaps, order_voltMaps,  = [], [], []
+    for cell in cells: # extract data and append to appropriate list
+        gnd_d, gnd_dx = met.readCyl4D_h5(data_dir+'cell_{}_grounded.h5'.format(cell.no))
+        high_d, high_dx = met.readCyl4D_h5(data_dir+'cell_{}_10V.h5'.format(cell.no))
+        cell.gnd_figMap = gnd_d
+        cell.high_figMap = high_d
+        gnd_figMaps.append(gnd_d)
+        high_figMaps.append(high_d)
+        order_figMaps.append(gnd_d)
+        order_figMaps.append(high_d)
+        ifs.append(high_d-gnd_d)
+        dxs.append(gnd_dx)
+        dxs.append(high_dx)
+        high_voltMaps.append(cell.high_voltMap)
+        gnd_voltMaps.append(cell.gnd_voltMap)
+        order_voltMaps.append(cell.high_voltMap)
+        order_voltMaps.append(cell.gnd_voltMap)
+        print('Read data cell {}'.format(cell.no))
+
+    # convert lists to 3D arrays
+    high_figMaps = np.stack(high_figMaps, axis=0)
+    gnd_figMaps = np.stack(gnd_figMaps, axis=0)
+    order_figMaps = np.stack(order_figMaps, axis=0)
+    ifs = np.stack(ifs, axis=0)
+    dx = np.nanmean(np.array(dxs))
+    high_voltMaps = np.stack(high_voltMaps, axis=0)
+    gnd_voltMaps = np.stack(gnd_voltMaps, axis=0)
+    order_voltMaps = np.stack(order_voltMaps, axis=0)
+    # add the IFs to the cell objects
+    add_IFs_to_cells_wCellnos([cell.no for cell in cells], ifs, cells)
+    print('mean dx: {:.3f} mm/pix'.format(dx))
+    # save the list of edited cell objects
+    if cell_save_fname: save_cells(cells, cell_save_fname)
+    return cells, high_figMaps, gnd_figMaps, order_figMaps, ifs, dx, high_voltMaps, gnd_voltMaps, order_voltMaps
 
 def add_IFs_to_cells_wCellnos(cell_nos, ifs, cells_ls):
     """
@@ -406,99 +540,27 @@ def cell_status(cells):
     short_cells = [cell for cell in cells if cell.short_cell_no != -1]
     return meas_cells, miss_cells, short_cells
 
-def plot_cell_status(cells, figsize=(10,8), plot_title=None, fontsize=18):
+def get_nonShort_badCells(cells, short_groups=None, thresh=9.5):
     """
-    Takes a list of cell objects and plots visually the status of whether they
-    have been measured, are missing, or are shorted.
+    Returns a list of cell numbers that aren't at the proper voltage, but aren't part of a short group.
+    cells: a list of cells tested at a single voltage
+    short_groups: the list that is returned from running ce.get_short_groups()
+    thresh: cell voltages < thresh are considered bad cells
     """
-    if plot_title is None: # format title with today's date if none is provided
-        today_dtype = date.today()
-        today = today_dtype.strftime('%y')+'-'+today_dtype.strftime('%m')+'-'+today_dtype.strftime('%d')
-        plot_title = 'C1S04 Cell Status '+today
-    # calculate how many cells are good, how many are shorted, and how manyh are missing
-    good_cells, miss_cells, short_cells = cell_status(cells)
-    N_good = len(good_cells)
-    N_miss = len(miss_cells)
-    N_short = len(short_cells)
-    # list that tells us which shorted cells have been plotted to share the same marker
-    partner_short_cell_nos = []
-    # colors shared by shorted cells
-    short_colors = list(mcolors.TABLEAU_COLORS.keys())
-    short_colors.pop(short_colors.index('tab:brown'))
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.invert_yaxis()
-    ax.set_title(plot_title, fontsize=fontsize)
-    ax.set_ylabel('Row', fontsize=fontsize)
-    ax.set_xlabel('Column', fontsize=fontsize)
-    # flags for only putting one entry of each type in legend
-    first_short, first_miss, first_good = True, True, True
-    for i, cell in enumerate(cells):
-        marker = "."
-        markersize = 240
-        if cell.short_cell_no != -1: # cell is shorted
-            if cell.no in partner_short_cell_nos:
-                # have cell share the same color
-                color_idx = partner_short_cell_nos.index(cell.no)
-                color = short_colors[color_idx]
-            else:
-                # use new short marker
-                color = short_colors[len(partner_short_cell_nos)]
-                partner_short_cell_nos.append(cell.short_cell_no)
-            # use cell no as marker
-            marker = '${}$'.format(cell.no)
-            if first_short: label = 'Measured & shorted ({})'.format(N_short)
-            else: label = ''
-            if cell.no > 99: markersize *= 1.5
-            first_short = False
-        elif cell.rms == -1: # cell is missing
-            color = 'darkred'
-            if first_miss: label = 'Missing ({})'.format(N_miss)
-            else: label = ''
-            first_miss = False
-        else: # cell is not shorted
-            color = 'limegreen'
-            if first_good: label = 'Measured w/out short ({})'.format(N_good)
-            else: label = ''
-            first_good = False
-        ax.scatter(cell.grid_coord[1], cell.grid_coord[0], marker=marker,
-                    s=markersize, color=color, label=label)
-    ax.set_yticks([i for i in range(18)])
-    ax.set_xticks([i for i in range(16)])
-    ax.set_yticklabels([i+1 for i in range(18)], fontsize=fontsize-6)
-    ax.set_xticklabels([i+1 for i in range(16)], fontsize=fontsize-6)
-    # Put a legend to the right of axis
-    fig.legend(bbox_to_anchor=(0.71, 0.5), loc="center left")
-    fig.subplots_adjust(right=0.7)
-    return fig
-
-def plot_cellTests(cells, date, tvolts=[-10.0, -1.0, 0.0, 1.0, 10.0],
-                    title='Cell Test Voltages Response', figsize=None, fontsize=12):
-    """
-    Plots the voltage history for a list of cell objects that were tested at a
-    list of known voltages.
-    """
-    N_rows = math.ceil(len(tvolts)/2)
-    if '_' in date: date = date.replace('_', '')
-    if figsize is None: figsize = (12, N_rows*5)
-    fig, axs = plt.subplots(N_rows, 2, figsize=figsize)
-    if len(tvolts) % 2 != 0: fig.delaxes(axs[-1,-1])
-    for i in range(len(tvolts)):
-        ax = axs.ravel()[i]
-        cell_nos = [cell.no for cell in cells]
-        volts = np.array([cell.volt_hist[i] for cell in cells])
-        mean_volt = np.mean(volts)
-        ax.plot(cell_nos, volts)
-        ax.set_ylabel('Voltage (V)', fontsize=fontsize)
-        ax.set_xlabel('Cell #', fontsize=fontsize)
-        ax.set_title('Applied Voltage: {} V'.format(tvolts[i]), fontsize=fontsize)
-        ax.text(0.85, 0.9, 'Mean: {:.2f}V'.format(mean_volt), fontsize=fontsize,
-                ha='center', va='center', transform=ax.transAxes)
-        ax.grid(axis='y')
-        ax.set_ylim([-15,15])
-        ax.set_xlim([np.min(cell_nos), np.max(cell_nos)])
-    fig.suptitle(title+'\nDate: '+date, fontsize=fontsize+2)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    return fig
+    nonShort_badCells = []
+    if not short_groups:
+        for cell in cells:
+            if (cell.volt_hist[0] < thresh):
+                nonShort_badCells.append(cell.no)
+            else: continue
+    else:
+        short_cell_nums = np.concatenate([short_groups[i][1][0] for i in \
+                                        range(len(short_groups))], axis=0)
+        for cell in cells:
+            if (cell.volt_hist[0] < thresh) and (cell.no not in short_cell_nums):
+                nonShort_badCells.append(cell.no)
+            else: continue
+    return nonShort_badCells
 
 ##################### Old functions #################################
 # def display_title_cell_no(ax, title, cell_no, fntsz):
