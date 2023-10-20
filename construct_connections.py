@@ -362,6 +362,8 @@ def load_cells(pickle_file):
     N_cells = len(attribs)
     N_values = len(attribs[0][0])
     keys = attribs[0][0]
+    # print(attribs[0][1][-2])
+    # print('keys:', keys)
     blank_cells = [Cell([None]*N_values) for i in range(N_cells)]
     for i, blank_cell in enumerate(blank_cells):
         for j in range(N_values):
@@ -528,6 +530,19 @@ def add_maxInds_to_cells_wCellnos(cell_nos, maxInds, cells_ls):
                     # print('Cell {}s shorted partner is {}'.format(cell_no, short_cell_no))
         # print('-----------------------')
         cells_ls[cell_no_idx].add_maxInd(maxInds[i], short_cell_no)
+
+def order_cells(cells):
+    """
+    Takes a list of cell objects a reorders them based on cell number (cell.no).
+    """
+    ordered_cells = []
+    unordered_cell_nos = [cell.no for cell in cells]
+    ordered_cell_nos = copy.deepcopy(unordered_cell_nos)
+    ordered_cell_nos.sort()
+    for i in ordered_cell_nos:
+        cell_idx = unordered_cell_nos.index(i)
+        ordered_cells.append(cells[cell_idx])
+    return ordered_cells
 
 def cell_status(cells):
     """

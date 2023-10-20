@@ -305,7 +305,7 @@ def plot_cell_status_convex(cells=[], short_cells=[], date='', short_group_thres
     """
     if badIF_cell_nos is None: badIF_cell_nos = np.array([])
     if short_cells:
-        short_groups = get_short_groups(short_cells) # get the short groups from the cells that were tested for shorts
+        short_groups = get_short_groups(short_cells, thresh=short_group_thresh) # get the short groups from the cells that were tested for shorts
         short_cell_nums = np.concatenate([short_groups[i][1][0] for i in \
                                         range(len(short_groups))], axis=0)
     else:
